@@ -23,7 +23,7 @@ def time_to_cheat():
     for w in about_to_type:
         try:
             for s in w.text:
-                time.sleep(0.02)
+                time.sleep(0.001)
                 ActionChains(driver).send_keys(s).perform()
         except:
             print("it breaks lol")
