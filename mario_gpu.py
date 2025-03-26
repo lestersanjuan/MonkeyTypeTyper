@@ -1,13 +1,13 @@
-from torchrl.data import TensorDictReplayBuffer, ListStorage
-from tensordict import TensorDict
-from agent_nn import AgentNN
 import torch
 import gym_super_mario_bros
 from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
-from nes_py.wrappers import JoypadSpace
 import numpy as np
 from gym import Wrapper
 from gym.wrappers import GrayScaleObservation, ResizeObservation, FrameStack
+from nes_py.wrappers import JoypadSpace
+from torchrl.data import TensorDictReplayBuffer, ListStorage
+from tensordict import TensorDict
+from agent_nn import AgentNN  # Your NN definition goes here
 
 
 class SkipFrame(Wrapper):
@@ -23,7 +23,6 @@ class SkipFrame(Wrapper):
             total_reward += reward
             if done:
                 break
-
         return next_state, total_reward, done, trunc, info
 
 
@@ -36,17 +35,22 @@ def apply_wrappers(env):
 
 
 class Agent:
-    def __init__(self,
-                 input_dims,
-                 num_actions,
-                 lr=0.00025,
-                 gamma=0.9,
-                 epsilon=1.0,
-                 eps_decay=0.99999975,
-                 eps_min=0.1,
-                 replay_buffer_capacity=10_000,  # Reduced for Windows stability
-                 batch_size=32,
-                 sync_network_rate=10000):
+    def __init__(
+        self,
+        input_dims,
+        num_actions,
+        lr=0.00025,
+        gamma=0.9,
+        epsilon=1.0,
+        eps_decay=0.99999975,
+        eps_min=0.1,
+        replay_buffer_capacity=10_000,  # Reduced for Windows stability
+        batch_size=32,
+        sync_network_rate=10000
+    ):
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Using device: {self.device}")
 
         self.num_actions = num_actions
         self.learn_step_counter = 0
@@ -59,8 +63,10 @@ class Agent:
         self.batch_size = batch_size
         self.sync_network_rate = sync_network_rate
 
-        self.online_network = AgentNN(input_dims, num_actions)
-        self.target_network = AgentNN(input_dims, num_actions, freeze=True)
+        # Create the networks and move them to the device
+        self.online_network = AgentNN(input_dims, num_actions).to(self.device)
+        self.target_network = AgentNN(
+            input_dims, num_actions, freeze=True).to(self.device)
 
         self.optimizer = torch.optim.Adam(
             self.online_network.parameters(), lr=self.lr)
@@ -71,18 +77,23 @@ class Agent:
         self.replay_buffer = TensorDictReplayBuffer(storage=storage)
 
     def preprocess_obs(self, obs):
-        obs = torch.tensor(np.array(obs), dtype=torch.float32)
+        # Convert obs to a torch tensor on the correct device
+        obs = torch.tensor(
+            np.array(obs), dtype=torch.float32, device=self.device)
+        # If obs is 4D with a final channel of 1 (grayscale), squeeze that dimension
         if obs.ndim == 4 and obs.shape[-1] == 1:
             obs = obs.squeeze(-1)
         return obs
 
     def choose_action(self, observation):
+        # Epsilon-greedy
         if np.random.random() < self.epsilon:
             return np.random.randint(self.num_actions)
 
-        observation = self.preprocess_obs(observation).unsqueeze(
-            0).to(self.online_network.device)
-        return self.online_network(observation).argmax().item()
+        # Convert observation to correct shape and device
+        observation = self.preprocess_obs(observation).unsqueeze(0)
+        with torch.no_grad():
+            return self.online_network(observation).argmax().item()
 
     def decay_epsilon(self):
         self.epsilon = max(self.epsilon * self.eps_decay, self.eps_min)
@@ -91,13 +102,18 @@ class Agent:
         state = self.preprocess_obs(state)
         next_state = self.preprocess_obs(next_state)
 
-        self.replay_buffer.add(TensorDict({
-            "state": state,
-            "action": torch.tensor(action),
-            "reward": torch.tensor(reward),
-            "next_state": next_state,
-            "done": torch.tensor(done)
-        }, batch_size=[]))
+        self.replay_buffer.add(
+            TensorDict(
+                {
+                    "state": state,
+                    "action": torch.tensor(action, device=self.device),
+                    "reward": torch.tensor(reward, device=self.device),
+                    "next_state": next_state,
+                    "done": torch.tensor(done, device=self.device),
+                },
+                batch_size=[],
+            )
+        )
 
     def sync_networks(self):
         if self.learn_step_counter % self.sync_network_rate == 0 and self.learn_step_counter > 0:
@@ -108,26 +124,33 @@ class Agent:
         torch.save(self.online_network.state_dict(), path)
 
     def load_model(self, path):
-        self.online_network.load_state_dict(torch.load(path))
-        self.target_network.load_state_dict(torch.load(path))
+        self.online_network.load_state_dict(
+            torch.load(path, map_location=self.device))
+        self.target_network.load_state_dict(
+            torch.load(path, map_location=self.device))
 
     def learn(self):
         if len(self.replay_buffer) < self.batch_size:
             return
 
         self.sync_networks()
+
         self.optimizer.zero_grad()
+        samples = self.replay_buffer.sample(self.batch_size).to(self.device)
 
-        samples = self.replay_buffer.sample(
-            self.batch_size).to(self.online_network.device)
-        keys = ("state", "action", "reward", "next_state", "done")
         states, actions, rewards, next_states, dones = [
-            samples[k] for k in keys]
+            samples[k] for k in ("state", "action", "reward", "next_state", "done")
+        ]
 
+        # Q(s) for online network
         q_pred = self.online_network(states)
-        q_pred = q_pred[np.arange(self.batch_size), actions.squeeze()]
+        # Choose the Q-values corresponding to the actions that were taken
+        q_pred = q_pred[torch.arange(self.batch_size), actions.squeeze()]
 
+        # Q(s') for target network
         q_next = self.target_network(next_states).max(dim=1)[0]
+
+        # Q-target for the loss
         q_target = rewards + self.gamma * q_next * (1 - dones.float())
 
         loss = self.loss(q_pred, q_target)
@@ -138,30 +161,31 @@ class Agent:
         self.decay_epsilon()
 
 
+# Environment setup
 ENV_NAME = 'SuperMarioBros-v2'
 env = gym_super_mario_bros.make(
-    ENV_NAME, apply_api_compatibility=True, render_mode="human")
+    ENV_NAME, apply_api_compatibility=True, render_mode="rgb_array")
 env = JoypadSpace(env, SIMPLE_MOVEMENT)
 env = apply_wrappers(env)
 
 agent = Agent(input_dims=env.observation_space.shape,
               num_actions=env.action_space.n)
 
-RENDER_EVERY = 10000  # Only render every N episodes
-PRINT_EVERY = 500    # Only print progress every N episodes
+RENDER_EVERY = 5000  # Render every 5,000 episodes
+PRINT_EVERY = 500     # Print progress every 500 episodes
 
 for episode in range(50000):
-    render = episode % RENDER_EVERY == 0
-    print_progress = episode % PRINT_EVERY == 0
+    # Decide if we should render this episode
+    render = (episode % RENDER_EVERY == 0)
+    print_progress = (episode % PRINT_EVERY == 0)
 
     done = False
     state, _ = env.reset()
-
     total_reward = 0  # For monitoring performance
 
     while not done:
-
-        env.render()
+        if render:
+            env.render()
 
         action = agent.choose_action(state)
         new_state, reward, done, truncated, info = env.step(action)
