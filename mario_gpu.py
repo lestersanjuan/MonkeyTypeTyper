@@ -51,9 +51,9 @@ class Agent:
         lr=0.00025,
         gamma=0.9,
         epsilon=1.0,
-        eps_decay=0.999995,
+        eps_decay=0.9999995,
         eps_min=0.011,
-        replay_buffer_capacity=100_000,  # Reduced for Windows stability
+        replay_buffer_capacity=100000,  # Reduced for Windows stability
         batch_size=32,
         sync_network_rate=10000
     ):
