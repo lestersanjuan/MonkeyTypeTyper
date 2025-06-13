@@ -3,9 +3,10 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver import Keys, ActionChains
 import time
-
 service = Service(
-    executable_path=r"C:\Users\Lester San Juan\Desktop\cs178\MonkeyTypeTyper\chromedriver.exe")
+    executable_path=r"/Users/lestersanjuan/Desktop/ZottaGo/IloveTyping/chromedrivermac")
+#service = Service(
+ #   executable_path=r"C:\Users\Lester San Juan\Desktop\cs178\MonkeyTypeTyper\chromedriver.exe")
 driver = webdriver.Chrome(service=service)
 
 driver.implicitly_wait(2)
