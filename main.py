@@ -2,11 +2,12 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver import Keys, ActionChains
+import gspread
 import time
+# service = Service(
+#   executable_path=r"/Users/lestersanjuan/Desktop/ZottaGo/IloveTyping/chromedrivermac")
 service = Service(
-    executable_path=r"/Users/lestersanjuan/Desktop/ZottaGo/IloveTyping/chromedrivermac")
-#service = Service(
- #   executable_path=r"C:\Users\Lester San Juan\Desktop\cs178\MonkeyTypeTyper\chromedriver.exe")
+    executable_path=r"C:\Users\Lester San Juan\Desktop\cs178\MonkeyTypeTyper\chromedriver.exe")
 driver = webdriver.Chrome(service=service)
 
 driver.implicitly_wait(2)
@@ -89,12 +90,13 @@ def add_to_cart(amount, item_name):
         print(f"Error: {e}")
 
 
-while True:
-    input_taker = input("press y whenever youre ready to find items\n")
-    if input_taker == "y":
-        find_all_items()
-        add_to_cart(10, "Sunright 8684 uniform Apron 10 PCS")
-    elif input_taker == "quit":
-        break
-    else:
-        print('check')
+if __name__ == "__main__":
+    while True:
+        input_taker = input("press y whenever youre ready to find items\n")
+        if input_taker == "y":
+            find_all_items()
+            add_to_cart(10, "Sunright 8684 uniform Apron 10 PCS")
+        elif input_taker == "quit":
+            break
+        else:
+            print('check')
