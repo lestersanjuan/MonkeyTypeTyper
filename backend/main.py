@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver import Keys, ActionChains
 import gspread
 import time
-from item_warehouse_dictionary import all_items_warehouse, all_items_costco
+from backend.item_warehouse_dictionary import all_items_warehouse, all_items_costco
 # service = Service(
 #   executable_path=r"/Users/lestersanjuan/Desktop/ZottaGo/IloveTyping/chromedrivermac")
 service = Service(
