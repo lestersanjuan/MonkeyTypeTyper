@@ -14,8 +14,8 @@ service = Service(
     executable_path=r"C:\Users\Lester San Juan\Desktop\cs178\MonkeyTypeTyper\chromedriver.exe")
 driver = webdriver.Chrome(service=service)
 driver.implicitly_wait(2)
-driver.get("https://snrsca.com/dashboard/catalog")
-# driver.get("https://www.costcobusinessdelivery.com/")
+# driver.get("https://snrsca.com/dashboard/catalog")
+driver.get("https://www.costcobusinessdelivery.com/")
 driver.implicitly_wait(2)
 
 
@@ -64,11 +64,10 @@ def get_all_order_by_box_and_names(sheet_id="14mC696rRzj50gtN5VHTh1n-b8AjCPlKw8e
     worksheet = sheet.get_worksheet(1)
     name_of_items = worksheet.col_values(1)
     number_to_order = worksheet.col_values(6)
-    print(name_of_items, number_to_order)
+
     for name, number in list(zip(name_of_items, number_to_order))[2:]:
         name = name.strip()
         number = number.strip()
-        print("hello?")
         print(f"The name of the item is, {name} while we order {number} boxes")
         try:
             if number != "":
@@ -97,22 +96,12 @@ def order_costco(sheet_id="14mC696rRzj50gtN5VHTh1n-b8AjCPlKw8er4eG7IIvM"):
         if printing:
             try:
                 input = driver.find_element(By.ID, "search-field")
-                input.send_keys(all_items_costco[name])
+                input.send_keys(normalize_string(name))
                 driver.find_element(
                     By.CSS_SELECTOR, ".flex-child>button").click()
                 driver.implicitly_wait(5)
                 # Re-find the input field after DOM update
                 input = driver.find_element(By.ID, "search-field")
-                try:
-                    if number != "":
-                        amount = int(number)
-                        add_to_cart_costco(amount, all_items_costco[name])
-                except Exception as e:
-                    print(f"This did not work {name}, {number}")
-                    print(f"Error: {e}")
-                    traceback.print_exc()
-
-                # DELETE SECTION
                 input.send_keys(Keys.CONTROL + "a")
                 time.sleep(1)
                 input.send_keys(Keys.DELETE)
@@ -121,17 +110,6 @@ def order_costco(sheet_id="14mC696rRzj50gtN5VHTh1n-b8AjCPlKw8er4eG7IIvM"):
 
         if name == "<>":
             break
-
-
-def add_to_cart_costco(amount, item_name):
-    product = driver.find_element(
-        By.XPATH, f"//*[contains(normalize-space(text()), '{item_name.strip()}')]")
-
-    parent = product.find_element(By.XPATH, "../../..")
-    input_child = parent.find_element(By.ID, "value-1")
-    print(input_child.value)
-    input_child.clear()
-    input_child.send_keys(amount)
 
 
 def find_all_items():
@@ -190,8 +168,8 @@ if __name__ == "__main__":
         input_taker = input("press y whenever youre ready to find items\n")
         if input_taker == "y":
             # find_all_items()
-            get_all_order_by_box_and_names()
-            # order_costco()
+            # get_all_order_by_box_and_names()
+            order_costco()
         elif input_taker == "quit":
             break
         else:
