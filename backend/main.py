@@ -14,8 +14,8 @@ service = Service(
     executable_path=r"C:\Users\Lester San Juan\Desktop\cs178\MonkeyTypeTyper\chromedriver.exe")
 driver = webdriver.Chrome(service=service)
 driver.implicitly_wait(2)
-# driver.get("https://snrsca.com/dashboard/catalog")
-driver.get("https://www.costcobusinessdelivery.com/")
+driver.get("https://snrsca.com/dashboard/catalog")
+# driver.get("https://www.costcobusinessdelivery.com/")
 driver.implicitly_wait(2)
 
 
@@ -168,8 +168,8 @@ if __name__ == "__main__":
         input_taker = input("press y whenever youre ready to find items\n")
         if input_taker == "y":
             # find_all_items()
-            # get_all_order_by_box_and_names()
-            order_costco()
+            get_all_order_by_box_and_names()
+            #order_costco()
         elif input_taker == "quit":
             break
         else:
